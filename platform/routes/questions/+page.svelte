@@ -13,6 +13,7 @@
 	import { curriculum, getProgressStats, getPartProgress } from '$data/questions';
 	import { getPartIcon } from '$data/part-icons';
 	import { solved } from '$processes/progress-tracking/solved.svelte';
+	import { normalizePage } from '$lib/pagination';
 
 	const stats = $derived(getProgressStats(solved.slugs));
 	const partProgress = $derived(getPartProgress(solved.slugs));
@@ -38,15 +39,6 @@
 	const isFiltering = $derived(
 		searchQuery.trim() !== '' || solvedFilter !== 'all' || topicFilter !== 'all'
 	);
-
-	// Page number lives in the URL (?page=N), not just component state, so
-	// a reload or a shared link lands back on the same page instead of
-	// always snapping to page 1. Guarded by `browser`: reading
-	// page.url.searchParams during the static-site prerendering pass (no
-	// real query string exists then) throws, so the prerendered HTML
-	// always starts from page 1 and the real page number is picked up
-	// once this runs in an actual browser.
-	let currentPage = $state(browser ? Number(page.url.searchParams.get('page')) || 1 : 1);
 
 	const allTopics = curriculum
 		.flatMap((part) => part.tracks.flatMap((track) => track.questions.flatMap((q) => q.topics)))
@@ -84,6 +76,20 @@
 			: Math.max(1, Math.ceil(curriculum.length / CARDS_PER_PAGE))
 	);
 
+	// Page number lives in the URL (?page=N), not just component state, so
+	// a reload or a shared link lands back on the same page instead of
+	// always snapping to page 1. Guarded by `browser`: reading
+	// page.url.searchParams during the static-site prerendering pass (no
+	// real query string exists then) throws, so the prerendered HTML
+	// always starts from page 1 and the real page number is picked up
+	// once this runs in an actual browser. `totalPages` is intentionally
+	// declared first so the initial page is normalized before the first
+	// client-side slice is rendered.
+	// svelte-ignore state_referenced_locally
+	let currentPage = $state(
+		browser ? normalizePage(page.url.searchParams.get('page'), totalPages) : 1
+	);
+
 	const pagedCurriculum = $derived(
 		filteredCurriculum.slice((currentPage - 1) * PARTS_PER_PAGE, currentPage * PARTS_PER_PAGE)
 	);
@@ -103,6 +109,18 @@
 		url.searchParams.set('page', String(currentPage));
 		history.replaceState(history.state, '', url);
 	}
+
+	// Correct only a supplied noncanonical value. In particular, a missing
+	// parameter stays missing rather than becoming `?page=1`.
+	$effect(() => {
+		if (!browser) return;
+		const rawPage = page.url.searchParams.get('page');
+		if (rawPage === null || rawPage === String(currentPage)) return;
+
+		const url = new URL(window.location.href);
+		url.searchParams.set('page', String(currentPage));
+		history.replaceState(history.state, '', url);
+	});
 
 	// Any filter/search edit changes what "page 2" even means, so it jumps
 	// back to page 1 -- guarded to skip the very first run (mount), which

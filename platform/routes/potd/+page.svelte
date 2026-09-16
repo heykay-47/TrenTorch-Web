@@ -14,6 +14,7 @@
 	import { solved } from '$processes/progress-tracking/solved.svelte';
 	import { getTodaysPotdPart, getPastPotdPart } from '$processes/potd/get-potd-part';
 	import { getTodaysPotd } from '$processes/potd/get-todays-potd';
+	import { normalizePage } from '$lib/pagination';
 
 	const stats = $derived(getProgressStats(solved.slugs));
 
@@ -29,7 +30,6 @@
 	let searchQuery = $state('');
 	let solvedFilter = $state<'all' | 'solved' | 'unsolved'>('all');
 	let topicFilter = $state('all');
-	let currentPage = $state(browser ? Number(page.url.searchParams.get('page')) || 1 : 1);
 
 	// Filters only ever act on the Past Problems list -- Today's Problem is
 	// a single, always-relevant entry, the same way the hero card above
@@ -62,6 +62,13 @@
 
 	const totalPages = $derived(Math.max(1, Math.ceil(filteredCurriculum.length / PARTS_PER_PAGE)));
 
+	// Normalize the initial URL only after the filtered curriculum has
+	// supplied the route's page count, so the first rendered slice is valid.
+	// svelte-ignore state_referenced_locally
+	let currentPage = $state(
+		browser ? normalizePage(page.url.searchParams.get('page'), totalPages) : 1
+	);
+
 	const pagedCurriculum = $derived(
 		filteredCurriculum.slice((currentPage - 1) * PARTS_PER_PAGE, currentPage * PARTS_PER_PAGE)
 	);
@@ -72,6 +79,18 @@
 		url.searchParams.set('page', String(currentPage));
 		history.replaceState(history.state, '', url);
 	}
+
+	// Correct only a supplied noncanonical value. In particular, a missing
+	// parameter stays missing rather than becoming `?page=1`.
+	$effect(() => {
+		if (!browser) return;
+		const rawPage = page.url.searchParams.get('page');
+		if (rawPage === null || rawPage === String(currentPage)) return;
+
+		const url = new URL(window.location.href);
+		url.searchParams.set('page', String(currentPage));
+		history.replaceState(history.state, '', url);
+	});
 
 	let mounted = false;
 	$effect(() => {
