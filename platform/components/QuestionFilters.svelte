@@ -30,12 +30,19 @@
 	<div class="relative flex-1">
 		<Search
 			class="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+			aria-hidden="true"
 		/>
-		<Input type="search" bind:value={searchQuery} placeholder="Search questions" class="pl-8" />
+		<Input
+			type="search"
+			bind:value={searchQuery}
+			placeholder="Search questions"
+			class="pl-8"
+			aria-label="Search questions"
+		/>
 	</div>
 
 	<Select.Root type="single" bind:value={solvedFilter}>
-		<Select.Trigger class="w-full sm:w-36">
+		<Select.Trigger class="w-full sm:w-36" aria-label="Completion status">
 			{solvedLabels[solvedFilter]}
 		</Select.Trigger>
 		<Select.Content>
@@ -46,7 +53,7 @@
 	</Select.Root>
 
 	<Select.Root type="single" bind:value={topicFilter}>
-		<Select.Trigger class="w-full sm:w-48">
+		<Select.Trigger class="w-full sm:w-48" aria-label="Topic">
 			{topicLabel}
 		</Select.Trigger>
 		<Select.Content>
